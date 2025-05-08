@@ -1,0 +1,94 @@
+import time
+import threading
+from joblib import Parallel, delayed
+import multiprocessing
+
+# -------- Sorting Functions --------
+
+def bubble_sort(arr):
+    n = len(arr)
+    for i in range(n):
+        for j in range(0, n - i - 1):
+            if arr[j] > arr[j + 1]:
+                arr[j], arr[j + 1] = arr[j + 1], arr[j]
+
+def parallel_bubble_sort(arr):
+    n = len(arr)
+
+    def compare_and_swap(start):
+        for j in range(start, n - 1, 2):
+            if arr[j] > arr[j + 1]:
+                arr[j], arr[j + 1] = arr[j + 1], arr[j]
+
+    for i in range(n):
+        # Even phase
+        t1 = threading.Thread(target=compare_and_swap, args=(0,))
+        t1.start()
+        t1.join()
+
+        # Odd phase
+        t2 = threading.Thread(target=compare_and_swap, args=(1,))
+        t2.start()
+        t2.join()
+
+def merge_sort(arr):
+    if len(arr) <= 1:
+        return arr
+    mid = len(arr) // 2
+    left = merge_sort(arr[:mid])
+    right = merge_sort(arr[mid:])
+    return merge(left, right)
+
+def parallel_merge_sort(arr):
+    if len(arr) <= 1:
+        return arr
+
+    mid = len(arr) // 2
+    num_jobs = min(2, multiprocessing.cpu_count())
+    results = Parallel(n_jobs=num_jobs)(
+        delayed(merge_sort)(part) for part in [arr[:mid], arr[mid:]]
+    )
+    return merge(results[0], results[1])
+
+def merge(left, right):
+    result = []
+    i = j = 0
+    while i < len(left) and j < len(right):
+        if left[i] < right[j]:
+            result.append(left[i])
+            i += 1
+        else:
+            result.append(right[j])
+            j += 1
+    result.extend(left[i:])
+    result.extend(right[j:])
+    return result
+
+# -------- Timing and Output --------
+def measure_time(sort_function, arr, name, is_returning=False):
+    start = time.time()
+    if is_returning:
+        sorted_arr = sort_function(arr)
+    else:
+        sort_function(arr)
+        sorted_arr = arr
+    elapsed = time.time() - start
+    print(f"{name} Time: {elapsed:.6f} seconds")
+    print(f"{name} Sorted Array: {sorted_arr}\n")
+    return elapsed
+
+# -------- Main --------
+def main():
+    user_input = input("Enter integers separated by spaces: ")
+    arr = list(map(int, user_input.strip().split()))
+    arr1, arr2, arr3, arr4 = arr[:], arr[:], arr[:], arr[:]
+
+    print("\nOriginal Array:", arr, "\n")
+
+    measure_time(bubble_sort, arr1, "Sequential Bubble Sort")
+    measure_time(parallel_bubble_sort, arr2, "Parallel Bubble Sort")
+    measure_time(lambda x: merge_sort(x), arr3, "Sequential Merge Sort", is_returning=True)
+    measure_time(lambda x: parallel_merge_sort(x), arr4, "Parallel Merge Sort", is_returning=True)
+
+if __name__ == "__main__":
+    main()
